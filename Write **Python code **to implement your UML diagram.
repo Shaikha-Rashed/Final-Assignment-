@@ -12,6 +12,12 @@ class User:
     def get_username(self):
         return self.username
 
+    def get_password(self):
+        return self.password
+
+    def set_password(self, password):
+        self.password = password
+
     def check_password(self, password):
         return self.password == password
 
@@ -19,6 +25,12 @@ class Customer(User):
     def __init__(self, username, password):
         super().__init__(username, password)
         self.orders = []
+
+    def get_orders(self):
+        return self.orders
+
+    def set_orders(self, orders):
+        self.orders = orders
 
     def view_orders(self):
         return self.orders
@@ -37,15 +49,45 @@ class Ticket:
         self.validity = validity
         self.features = features
 
+    def get_ticket_id(self):
+        return self.ticket_id
+
+    def get_name(self):
+        return self.name
+
+    def get_price(self):
+        return self.price
+
+    def get_validity(self):
+        return self.validity
+
+    def get_features(self):
+        return self.features
+
+    def set_price(self, price):
+        self.price = price
+
     def get_ticket_info(self):
         return f"{self.ticket_id} - {self.name} | {self.price} AED | {self.validity} | {self.features}"
 
 class PurchaseOrder:
     def __init__(self, customer, ticket):
         self.customer = customer.get_username()
-        self.ticket = ticket.name
+        self.ticket = ticket.get_name()
         self.date = datetime.now().strftime("%Y-%m-%d")
-        self.price = ticket.price
+        self.price = ticket.get_price()
+
+    def get_customer(self):
+        return self.customer
+
+    def get_ticket(self):
+        return self.ticket
+
+    def get_date(self):
+        return self.date
+
+    def get_price(self):
+        return self.price
 
     def get_summary(self):
         return f"{self.date} | {self.ticket} | {self.price} AED"
@@ -84,7 +126,7 @@ class TicketSystemManager:
         raise ValueError("Invalid login")
 
     def add_ticket(self, ticket):
-        self.tickets[ticket.ticket_id] = ticket
+        self.tickets[ticket.get_ticket_id()] = ticket
         self.save_all()
 
     def make_purchase(self, customer, ticket_id):
@@ -93,7 +135,7 @@ class TicketSystemManager:
         ticket = self.tickets[ticket_id]
         order = PurchaseOrder(customer, ticket)
         customer.orders.append(order)
-        self.orders.setdefault(order.date, []).append(order)
+        self.orders.setdefault(order.get_date(), []).append(order)
         self.save_all()
 
 # === Sample Tickets ===
