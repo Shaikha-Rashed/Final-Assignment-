@@ -1,0 +1,178 @@
+import pickle
+import os
+from datetime import datetime
+
+# === USER CLASSES ===
+
+class User:
+    def __init__(self, username, password):
+        self.username = username
+        self.password = password
+
+    def get_username(self):
+        return self.username
+
+    def check_password(self, password):
+        return self.password == password
+
+class Customer(User):
+    def __init__(self, username, password):
+        super().__init__(username, password)
+        self.orders = []
+
+    def view_orders(self):
+        return self.orders
+
+class Admin(User):
+    def __init__(self, username, password):
+        super().__init__(username, password)
+
+# === TICKET & ORDER ===
+
+class Ticket:
+    def __init__(self, ticket_id, name, price, validity, features):
+        self.ticket_id = ticket_id
+        self.name = name
+        self.price = price
+        self.validity = validity
+        self.features = features
+
+    def get_ticket_info(self):
+        return f"{self.ticket_id} - {self.name} | {self.price} AED | {self.validity} | {self.features}"
+
+class PurchaseOrder:
+    def __init__(self, customer, ticket):
+        self.customer = customer.get_username()
+        self.ticket = ticket.name
+        self.date = datetime.now().strftime("%Y-%m-%d")
+        self.price = ticket.price
+
+    def get_summary(self):
+        return f"{self.date} | {self.ticket} | {self.price} AED"
+
+# === SYSTEM MANAGER ===
+
+class TicketSystemManager:
+    def __init__(self):
+        self.customers = self.load_data("customers.pkl")
+        self.admins = self.load_data("admins.pkl")
+        self.tickets = self.load_data("tickets.pkl")
+        self.orders = self.load_data("orders.pkl")
+
+    def save_all(self):
+        self.save_data("customers.pkl", self.customers)
+        self.save_data("admins.pkl", self.admins)
+        self.save_data("tickets.pkl", self.tickets)
+        self.save_data("orders.pkl", self.orders)
+
+    def save_data(self, filename, data):
+        with open(filename, "wb") as f:
+            pickle.dump(data, f)
+
+    def load_data(self, filename):
+        return pickle.load(open(filename, "rb")) if os.path.exists(filename) else {}
+
+    def register_customer(self, username, password):
+        if username in self.customers:
+            raise ValueError("Customer already exists.")
+        self.customers[username] = Customer(username, password)
+        self.save_all()
+
+    def login_customer(self, username, password):
+        if username in self.customers and self.customers[username].check_password(password):
+            return self.customers[username]
+        raise ValueError("Invalid login")
+
+    def add_ticket(self, ticket):
+        self.tickets[ticket.ticket_id] = ticket
+        self.save_all()
+
+    def make_purchase(self, customer, ticket_id):
+        if ticket_id not in self.tickets:
+            raise ValueError("Ticket not found")
+        ticket = self.tickets[ticket_id]
+        order = PurchaseOrder(customer, ticket)
+        customer.orders.append(order)
+        self.orders.setdefault(order.date, []).append(order)
+        self.save_all()
+
+# === Sample Tickets ===
+
+def create_sample_tickets(manager):
+    if not manager.tickets:
+        manager.add_ticket(Ticket("T1", "Single Race Pass", 100, "1 day", "Access to 1 race"))
+        manager.add_ticket(Ticket("T2", "Weekend Package", 250, "3 days", "All weekend events"))
+        manager.add_ticket(Ticket("T3", "Season Membership", 900, "Season", "All races + VIP"))
+        manager.add_ticket(Ticket("T4", "Group Discount", 400, "1 day", "5-person pass"))
+
+# === MAIN PROGRAM ===
+
+def main():
+    system = TicketSystemManager()
+    create_sample_tickets(system)
+    customer = None
+
+    while True:
+        print("\n=== Grand Prix Ticket System ===")
+        print("1. Register")
+        print("2. Login")
+        print("3. View Tickets")
+        print("4. Purchase Ticket")
+        print("5. View My Orders")
+        print("0. Exit")
+        choice = input("Choose an option: ")
+
+        if choice == "1":
+            u = input("Enter username: ")
+            p = input("Enter password: ")
+            try:
+                system.register_customer(u, p)
+                print("Registration successful.")
+            except Exception as e:
+                print("Error:", e)
+
+        elif choice == "2":
+            u = input("Enter username: ")
+            p = input("Enter password: ")
+            try:
+                customer = system.login_customer(u, p)
+                print("Login successful. Welcome,", customer.get_username())
+            except Exception as e:
+                print("Error:", e)
+
+        elif choice == "3":
+            for t in system.tickets.values():
+                print(t.get_ticket_info())
+
+        elif choice == "4":
+            if not customer:
+                print("You must log in first.")
+            else:
+                tid = input("Enter Ticket ID to purchase: ")
+                try:
+                    system.make_purchase(customer, tid)
+                    print("Purchase successful.")
+                except Exception as e:
+                    print("Error:", e)
+
+        elif choice == "5":
+            if not customer:
+                print("You must log in first.")
+            else:
+                orders = customer.view_orders()
+                if not orders:
+                    print("No orders yet.")
+                else:
+                    for order in orders:
+                        print(order.get_summary())
+
+        elif choice == "0":
+            system.save_all()
+            print("Goodbye!")
+            break
+
+        else:
+            print("Invalid option.")
+
+if __name__ == "__main__":
+    main()
