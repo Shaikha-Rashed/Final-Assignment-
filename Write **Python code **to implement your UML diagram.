@@ -4,43 +4,54 @@ from datetime import datetime
 
 # === USER CLASSES ===
 
+# Base class for all users (customers and admins)
 class User:
     def __init__(self, username, password):
         self.username = username
         self.password = password
 
+    # Get the username
     def get_username(self):
         return self.username
 
+    # Get the password
     def get_password(self):
         return self.password
 
+    # Set a new password
     def set_password(self, password):
         self.password = password
 
+    # Check if input password matches stored password
     def check_password(self, password):
         return self.password == password
 
+# Represents a customer with a list of their purchase orders
 class Customer(User):
     def __init__(self, username, password):
         super().__init__(username, password)
         self.orders = []
 
+    # Get the list of orders
     def get_orders(self):
         return self.orders
 
+    # Set the order list
     def set_orders(self, orders):
         self.orders = orders
 
+    # View the order list
     def view_orders(self):
         return self.orders
 
+# Represents an admin user (inherits from User)
 class Admin(User):
     def __init__(self, username, password):
         super().__init__(username, password)
 
-# === TICKET & ORDER ===
+# === TICKET & ORDER CLASSES ===
 
+# Represents a ticket available for purchase
 class Ticket:
     def __init__(self, ticket_id, name, price, validity, features):
         self.ticket_id = ticket_id
@@ -64,12 +75,15 @@ class Ticket:
     def get_features(self):
         return self.features
 
+    # Update the ticket price
     def set_price(self, price):
         self.price = price
 
+    # Get all ticket details as a string
     def get_ticket_info(self):
         return f"{self.ticket_id} - {self.name} | {self.price} AED | {self.validity} | {self.features}"
 
+# Represents a single ticket purchase
 class PurchaseOrder:
     def __init__(self, customer, ticket):
         self.customer = customer.get_username()
@@ -89,11 +103,13 @@ class PurchaseOrder:
     def get_price(self):
         return self.price
 
+    # Display order summary
     def get_summary(self):
         return f"{self.date} | {self.ticket} | {self.price} AED"
 
-# === SYSTEM MANAGER ===
+# === SYSTEM MANAGER CLASS ===
 
+# Manages users, tickets, and purchase orders
 class TicketSystemManager:
     def __init__(self):
         self.customers = self.load_data("customers.pkl")
@@ -101,34 +117,41 @@ class TicketSystemManager:
         self.tickets = self.load_data("tickets.pkl")
         self.orders = self.load_data("orders.pkl")
 
+    # Save all data files
     def save_all(self):
         self.save_data("customers.pkl", self.customers)
         self.save_data("admins.pkl", self.admins)
         self.save_data("tickets.pkl", self.tickets)
         self.save_data("orders.pkl", self.orders)
 
+    # Save a specific file
     def save_data(self, filename, data):
         with open(filename, "wb") as f:
             pickle.dump(data, f)
 
+    # Load a specific file
     def load_data(self, filename):
         return pickle.load(open(filename, "rb")) if os.path.exists(filename) else {}
 
+    # Register a new customer
     def register_customer(self, username, password):
         if username in self.customers:
             raise ValueError("Customer already exists.")
         self.customers[username] = Customer(username, password)
         self.save_all()
 
+    # Login for a customer
     def login_customer(self, username, password):
         if username in self.customers and self.customers[username].check_password(password):
             return self.customers[username]
         raise ValueError("Invalid login")
 
+    # Add a ticket to the system
     def add_ticket(self, ticket):
         self.tickets[ticket.get_ticket_id()] = ticket
         self.save_all()
 
+    # Make a purchase for a customer
     def make_purchase(self, customer, ticket_id):
         if ticket_id not in self.tickets:
             raise ValueError("Ticket not found")
@@ -138,8 +161,9 @@ class TicketSystemManager:
         self.orders.setdefault(order.get_date(), []).append(order)
         self.save_all()
 
-# === Sample Tickets ===
+# === Sample Ticket Creation ===
 
+# Create default sample tickets
 def create_sample_tickets(manager):
     if not manager.tickets:
         manager.add_ticket(Ticket("T1", "Single Race Pass", 100, "1 day", "Access to 1 race"))
@@ -147,8 +171,9 @@ def create_sample_tickets(manager):
         manager.add_ticket(Ticket("T3", "Season Membership", 900, "Season", "All races + VIP"))
         manager.add_ticket(Ticket("T4", "Group Discount", 400, "1 day", "5-person pass"))
 
-# === MAIN PROGRAM ===
+# === MAIN APPLICATION ===
 
+# Main program interface
 def main():
     system = TicketSystemManager()
     create_sample_tickets(system)
