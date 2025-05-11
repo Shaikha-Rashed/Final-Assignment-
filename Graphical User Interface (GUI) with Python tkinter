@@ -1,0 +1,229 @@
+import tkinter as tk
+from tkinter import messagebox, ttk
+from datetime import datetime
+import pickle
+import os
+import sys
+
+# Load/save functions
+def save_data(filename, data):
+    with open(filename, "wb") as f:
+        pickle.dump(data, f)
+
+def load_data(filename):
+    return pickle.load(open(filename, "rb")) if os.path.exists(filename) else {}
+
+# Data files
+CUSTOMERS_FILE = "customers.pkl"
+ADMINS_FILE = "admins.pkl"
+TICKETS_FILE = "tickets.pkl"
+ORDERS_FILE = "orders.pkl"
+DISCOUNTS_FILE = "discounts.pkl"
+
+# Initialize data
+customers = load_data(CUSTOMERS_FILE)
+admins = load_data(ADMINS_FILE)
+tickets = load_data(TICKETS_FILE)
+orders = load_data(ORDERS_FILE)
+discounts = load_data(DISCOUNTS_FILE)
+
+# Default discount
+if "T4" not in discounts:
+    discounts["T4"] = 0.10
+    save_data(DISCOUNTS_FILE, discounts)
+
+# Sample tickets if empty
+if not tickets:
+    tickets = {
+        "T1": {"name": "Single Race Pass", "price": 100, "validity": "1 day", "features": "Access to 1 race"},
+        "T2": {"name": "Weekend Package", "price": 250, "validity": "3 days", "features": "All weekend events"},
+        "T3": {"name": "Season Membership", "price": 900, "validity": "Season", "features": "All races + VIP"},
+        "T4": {"name": "Group Discount", "price": 400, "validity": "1 day", "features": "5-person pass"}
+    }
+    save_data(TICKETS_FILE, tickets)
+
+# App state
+current_user = None
+
+# --- Main App Class ---
+class TicketApp:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Grand Prix Ticket System")
+        self.show_main_menu()
+
+    def show_main_menu(self):
+        self.clear()
+        tk.Label(self.root, text="Welcome to Grand Prix Ticket System", font=("Arial", 16)).pack(pady=10)
+        tk.Button(self.root, text="Login", width=20, command=self.login_screen).pack(pady=5)
+        tk.Button(self.root, text="Register", width=20, command=self.register_screen).pack(pady=5)
+        tk.Button(self.root, text="Exit", width=20, command=self.confirm_exit).pack(pady=5)
+
+    def confirm_exit(self):
+        if messagebox.askyesno("Exit", "Are you sure you want to exit?"):
+            self.root.after(100, lambda: (self.root.destroy(), sys.exit()))
+
+    def register_screen(self):
+        self.clear()
+        tk.Label(self.root, text="Register", font=("Arial", 14)).pack(pady=10)
+        u = tk.Entry(self.root)
+        p = tk.Entry(self.root, show="*")
+        u.pack(); p.pack()
+        def register():
+            username, password = u.get(), p.get()
+            if username in customers:
+                messagebox.showerror("Error", "User exists.")
+            else:
+                customers[username] = {"password": password, "orders": []}
+                save_data(CUSTOMERS_FILE, customers)
+                messagebox.showinfo("Success", "Registered successfully.")
+                self.show_main_menu()
+        tk.Button(self.root, text="Register", command=register).pack(pady=5)
+        tk.Button(self.root, text="Back", command=self.show_main_menu).pack()
+
+    def login_screen(self):
+        self.clear()
+        tk.Label(self.root, text="Login", font=("Arial", 14)).pack(pady=10)
+        u = tk.Entry(self.root)
+        p = tk.Entry(self.root, show="*")
+        u.pack(); p.pack()
+        def login():
+            global current_user
+            username, password = u.get(), p.get()
+            if username in customers and customers[username]["password"] == password:
+                current_user = username
+                self.customer_menu()
+            elif username in admins and admins[username] == password:
+                self.admin_menu()
+            else:
+                messagebox.showerror("Error", "Invalid credentials. Please register if new.")
+        tk.Button(self.root, text="Login", command=login).pack(pady=5)
+        tk.Button(self.root, text="Back", command=self.show_main_menu).pack()
+
+    def customer_menu(self):
+        self.clear()
+        tk.Label(self.root, text=f"Welcome, {current_user}", font=("Arial", 14)).pack(pady=10)
+        tk.Button(self.root, text="View Tickets", width=25, command=self.show_tickets).pack(pady=5)
+        tk.Button(self.root, text="My Orders", width=25, command=self.show_orders).pack(pady=5)
+        tk.Button(self.root, text="Edit My Info", width=25, command=self.edit_info).pack(pady=5)
+        tk.Button(self.root, text="Delete My Account", width=25, command=self.delete_account).pack(pady=5)
+        tk.Button(self.root, text="Logout", width=25, command=self.logout).pack(pady=5)
+
+    def show_tickets(self):
+        self.clear()
+        tk.Label(self.root, text="Available Tickets", font=("Arial", 14)).pack()
+        for tid, t in tickets.items():
+            info = f"{tid} - {t['name']} | {t['price']} AED | {t['validity']} | {t['features']}"
+            tk.Label(self.root, text=info).pack()
+        box = ttk.Combobox(self.root, values=list(tickets.keys()))
+        box.pack()
+
+        payment_method = ttk.Combobox(self.root, values=["Credit Card", "Debit Card"])
+        payment_method.set("Select Payment Method")
+        payment_method.pack(pady=5)
+
+        def purchase():
+            tid = box.get()
+            method = payment_method.get()
+            if tid in tickets and method in ["Credit Card", "Debit Card"]:
+                ticket = tickets[tid]
+                price = ticket["price"]
+                if tid in discounts:
+                    price *= (1 - discounts[tid])
+                order = {"ticket": ticket["name"], "date": datetime.now().strftime("%Y-%m-%d"), "price": round(price, 2)}
+                customers[current_user]["orders"].append(order)
+                orders.setdefault(order["date"], []).append(order)
+                save_data(CUSTOMERS_FILE, customers)
+                save_data(ORDERS_FILE, orders)
+                messagebox.showinfo("Success", f"Purchased {ticket['name']} using {method}")
+            else:
+                messagebox.showerror("Error", "Please select a ticket and payment method.")
+
+        tk.Button(self.root, text="Purchase", command=purchase).pack(pady=5)
+        tk.Button(self.root, text="Back", command=self.customer_menu).pack()
+
+    def show_orders(self):
+        self.clear()
+        tk.Label(self.root, text="My Orders", font=("Arial", 14)).pack()
+        order_list = customers[current_user]["orders"]
+        for i, o in enumerate(order_list):
+            tk.Label(self.root, text=f"{i+1}. {o['date']} | {o['ticket']} | {o['price']} AED").pack()
+        def delete_order():
+            idx = order_index.get()
+            if idx.isdigit() and 1 <= int(idx) <= len(order_list):
+                removed = order_list.pop(int(idx)-1)
+                save_data(CUSTOMERS_FILE, customers)
+                messagebox.showinfo("Deleted", f"Removed order: {removed['ticket']} on {removed['date']}")
+                self.show_orders()
+            else:
+                messagebox.showerror("Error", "Invalid order number")
+        order_index = tk.Entry(self.root)
+        order_index.pack()
+        tk.Button(self.root, text="Delete Order #", command=delete_order).pack(pady=5)
+        tk.Button(self.root, text="Back", command=self.customer_menu).pack()
+
+    def edit_info(self):
+        self.clear()
+        tk.Label(self.root, text=f"Current Username: {current_user}", font=("Arial", 12)).pack()
+        tk.Label(self.root, text="New Password:").pack()
+        new_pass = tk.Entry(self.root, show="*")
+        new_pass.pack()
+        def update():
+            customers[current_user]["password"] = new_pass.get()
+            save_data(CUSTOMERS_FILE, customers)
+            messagebox.showinfo("Updated", "Password changed.")
+            self.customer_menu()
+        tk.Button(self.root, text="Update Password", command=update).pack(pady=5)
+        tk.Button(self.root, text="Back", command=self.customer_menu).pack()
+
+    def delete_account(self):
+        if messagebox.askyesno("Confirm", "Are you sure you want to delete your account?"):
+            del customers[current_user]
+            save_data(CUSTOMERS_FILE, customers)
+            self.logout()
+
+    def admin_menu(self):
+        self.clear()
+        tk.Label(self.root, text="Admin Dashboard", font=("Arial", 14)).pack(pady=10)
+        for date, orderlist in orders.items():
+            tk.Label(self.root, text=f"{date}: {len(orderlist)} tickets sold").pack()
+
+        tk.Label(self.root, text="\nModify Discounts (Ticket ID and Percentage)", font=("Arial", 12)).pack()
+        tid_entry = tk.Entry(self.root)
+        tid_entry.pack()
+        percent_entry = tk.Entry(self.root)
+        percent_entry.pack()
+
+        def update_discount():
+            tid, percent = tid_entry.get(), percent_entry.get()
+            try:
+                percent = float(percent)
+                if tid in tickets:
+                    discounts[tid] = percent / 100
+                    save_data(DISCOUNTS_FILE, discounts)
+                    messagebox.showinfo("Updated", f"Discount for {tid} set to {percent}%")
+                else:
+                    messagebox.showerror("Error", "Invalid Ticket ID")
+            except:
+                messagebox.showerror("Error", "Enter valid percentage.")
+
+        tk.Button(self.root, text="Update Discount", command=update_discount).pack(pady=5)
+        tk.Button(self.root, text="Back", command=self.show_main_menu).pack()
+
+    def logout(self):
+        global current_user
+        current_user = None
+        self.show_main_menu()
+
+    def clear(self):
+        for widget in self.root.winfo_children():
+            widget.destroy()
+
+# Admins for testing
+admins["admin"] = "admin123"
+save_data(ADMINS_FILE, admins)
+
+# Run App
+root = tk.Tk()
+app = TicketApp(root)
+root.mainloop()
